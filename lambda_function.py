@@ -26,15 +26,14 @@ def handler(event, context):
                """
     )
 
-    columns_to_keep = """CAST(date as DATE) as date, serial_number, model, capacity_bytes, failure, datacenter,
-                       cluster_id, vault_id, pod_id, pod_slot_num"""
-
     df = conn.query(
         f"""
-                    CREATE TABLE data as (
-                    SELECT {columns_to_keep} FROM read_csv('s3://{bucket}/{key}', header=true)
-                    );
-                    SELECT * FROM data;
+            CREATE TABLE data as (
+            SELECT CAST(date as DATE) date, serial_number, model, 
+            capacity_bytes, failure, datacenter, cluster_id, vault_id, pod_id, pod_slot_num
+            FROM read_csv('s3://{bucket}/{key}', header=true, delim = ',' , ignore_errors=true)
+            );
+            SELECT * FROM data;
                     """
     ).arrow()
 
@@ -76,14 +75,17 @@ def handler(event, context):
         .tolist()
     )
     partition_filters = [("date", "=", x.strftime("%Y-%m-%d")) for x in date_partitions]
+    predicate = " AND ".join(
+        [f"{col} {op} '{val}'" for col, op, val in partition_filters]
+    )
 
     # this eseentially re-writes the partition
     write_deltalake(
         DAILY_TABLE_PATH,
         cummulative_df,
         mode="overwrite",
-        partition_filters=partition_filters,
-        engine="pyarrow",
+        predicate=predicate,
+        engine="rust",
         schema_mode="overwrite",
         storage_options={"AWS_S3_ALLOW_UNSAFE_RENAME": "true"},
     )

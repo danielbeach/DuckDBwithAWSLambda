@@ -1,6 +1,6 @@
 import daft
 
-df = daft.read_csv('2024-07-01.csv')
+df = daft.read_csv('2024-07-01.csv', allow_variable_columns=True)
 
 columns_to_keep = ['date','serial_number','model','capacity_bytes','failure','datacenter','cluster_id','vault_id','pod_id','pod_slot_num']
 
